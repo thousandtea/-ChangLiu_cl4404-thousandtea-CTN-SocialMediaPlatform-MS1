@@ -1,1 +1,1 @@
-# -ChangLiu_cl4404-thousandtea-CTN-SocialMediaPlatform-MS1
+# CTN-SocialMediaPlatform-MS1
