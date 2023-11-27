@@ -32,8 +32,7 @@ def create_database_and_users_table(db_name, db_user, db_password, db_host, db_p
     # SQL command to create the users table if it doesn't exist
     create_table_command = text("""
         CREATE TABLE IF NOT EXISTS users (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            username VARCHAR(255) NOT NULL,
+            username VARCHAR(255) PRIMARY KEY,
             email VARCHAR(255) NOT NULL,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );

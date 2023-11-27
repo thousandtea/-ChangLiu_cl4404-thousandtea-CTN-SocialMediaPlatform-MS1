@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Response, Path, HTTPException, Body
 from typing import List
-from resources.resource import UsersResource, User
+from resources.resource import UsersResource, User, Insert
 from database.database import Database
 
 # Database connection
@@ -23,30 +23,29 @@ async def get_api_docs():
 async def get_users():
     return users_resource.get_all_users()
 
-@app.post("/api/users/", response_model=User)
-async def create_user(user: User = Body(...)):
-    return users_resource.create_user(user)
+@app.post("/api/users/", response_model=Insert)
+async def create_user(user_data: Insert = Body(...)):
+    return users_resource.create_user(user_data)
 
-@app.put("/api/users/{user_id}", response_model=User)
-async def update_user(user_id: int, user: User = Body(...)):
-    return users_resource.update_user(user_id, user)
+@app.put("/api/users/{username}", response_model=dict)
+async def update_user(username: str, user: Insert = Body(...)):
+    return users_resource.update_user(username, user)
 
-@app.delete("/api/users/{user_id}")
-async def delete_user(user_id: int):
-    users_resource.delete_user(user_id)
-    return {"message": f"User with id {user_id} deleted"}
+@app.delete("/api/users/{username}")
+async def delete_user(username: str):
+    return users_resource.delete_user(username)
 
 @app.post("/api/users/login")
 async def login_user():
     return {"message": "User logged in"}
 
-@app.get("/api/users/{user_id}", response_model=User)
-async def get_user(user_id: int = Path(..., description="The ID of the user to retrieve")):
-    return users_resource.get_user(user_id)
+@app.get("/api/users/{username}", response_model=User)
+async def get_user(username: str):
+    return users_resource.get_user(username)
 
-@app.get("/api/users/{user_id}/profile")
-async def get_user_profile(user_id: int):
-    return users_resource.get_user_profile(user_id)
+@app.get("/api/users/{username}/profile")
+async def get_user_profile(username: str):
+    return users_resource.get_user_profile(username)
 
 if __name__ == "__main__":
     import uvicorn

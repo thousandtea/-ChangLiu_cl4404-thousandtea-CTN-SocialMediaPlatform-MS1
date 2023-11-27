@@ -3,32 +3,35 @@ import datetime
 from fastapi import HTTPException
 from sqlalchemy import text
 class User(BaseModel):
-    id: int
     username: str
     email: str
     created_at: datetime.datetime
 
+# Class for insertion only
+class Insert(BaseModel):
+    username: str
+    email: str
+
 # Mock database
-mock_users = {
-    1: User(id=1, username="user1", email="user1@example.com", created_at=datetime.datetime.now()),
-    2: User(id=2, username="user2", email="user2@example.com", created_at=datetime.datetime.now()),
-}
+# mock_users = {
+#     1: User(id=1, username="user1", email="user1@example.com", created_at=datetime.datetime.now()),
+#     2: User(id=2, username="user2", email="user2@example.com", created_at=datetime.datetime.now()),
+# }
 class UsersResource:
     def __init__(self, database):
         self.database = database
 
-    def get_user(self, user_id: int):
+    def get_user(self, username: str):
         connection = self.database.connect()
-        query = text("SELECT * FROM micro1.users WHERE id = :user_id")
-        result = connection.execute(query, {"user_id": user_id}).fetchone()
+        query = text("SELECT username, email, created_at FROM micro1.users WHERE username = :username")
+        result = connection.execute(query, {"username": username}).fetchone()
         self.database.disconnect(connection)
 
         if result:
             user_data = {
-                "id": result[0],
-                "username": result[1],
-                "email": result[2],
-                "created_at": result[3]
+                "username": result[0],
+                "email": result[1],
+                "created_at": result[2]
             }
             return User(**user_data)
 
@@ -44,17 +47,16 @@ class UsersResource:
     #     return list(mock_users.values())
     def get_all_users(self):
         connection = self.database.connect()
-        query = text("SELECT id, username, email, created_at FROM micro1.users")
+        query = text("SELECT username, email, created_at FROM micro1.users")
         results = connection.execute(query).fetchall()
         self.database.disconnect(connection)
 
         users = []
         for result in results:
             user_data = {
-                "id": result[0],  # 'id' is the first column
-                "username": result[1],  # 'username' is the second column
-                "email": result[2],  # 'email' is the third column
-                "created_at": result[3]  # 'created_at' is the fourth column
+                "username": result[0],  # 'username' is the first column
+                "email": result[1],  # 'email' is the second column
+                "created_at": result[2]  # 'created_at' is the third column
             }
             users.append(User(**user_data))
 
@@ -64,62 +66,78 @@ class UsersResource:
     #         raise HTTPException(status_code=400, detail="User already exists")
     #     mock_users[user.id] = user
     #     return user
-    def create_user(self, user: User):
-        try:
-            connection = self.database.connect()
-            # Check if user already exists
-            check_query = text("SELECT * FROM micro1.users WHERE id = :id")
-            existing_user = connection.execute(check_query, {"id": user.id}).fetchone()
+    def create_user(self, user_data: Insert):
+        connection = self.database.connect()
+        transaction = connection.begin()
 
-            # Insert new user
-            insert_query = text("""
-                INSERT INTO micro1.users (id, username, email, created_at) 
-                VALUES (:id, :username, :email, :created_at)
-            """)
-            result = connection.execute(insert_query, user.dict())
-            self.database.disconnect(connection)
-            print("Inserted user:", result)
-            return user
-        except Exception as e:
-            print(f"An error occurred: {e}")
-            raise HTTPException(status_code=500, detail="User already exists")
+        # Check if username already exists
+        check_query = text("SELECT * FROM micro1.users WHERE username = :username")
+        existing_user = connection.execute(check_query, {"username": user_data.username}).fetchone()
+        if existing_user:
+            transaction.rollback()
+            raise HTTPException(status_code=400, detail="User with this username already exists")
+
+        # Add current datetime to 'created_at'
+        # user_data.created_at = datetime.datetime.now()
+
+        # Insert new user
+        insert_query = text("""
+            INSERT INTO micro1.users (username, email) 
+            VALUES (:username, :email)
+        """)
+        connection.execute(insert_query, user_data.dict())
+        transaction.commit()
+
+        self.database.disconnect(connection)
+        return user_data
     # def update_user(self, user_id: int, user_data: User):
     #     if user_id not in mock_users:
     #         raise HTTPException(status_code=404, detail="User not found")
     #     mock_users[user_id] = user_data
     #     return user_data
-    def update_user(self, user_id: int, user_data: User):
+    def update_user(self, username: str, user_data: Insert):
         connection = self.database.connect()
-        # Check if user exists
-        check_query = text("SELECT * FROM users WHERE id = :id")
-        existing_user = connection.execute(check_query, {"id": user_id}).fetchone()
-        if not existing_user:
-            raise HTTPException(status_code=404, detail="User not found")
+        transaction = connection.begin()
 
-        # Update user data
+        # Existing code for updating user...
         update_query = text("""
-            UPDATE users 
-            SET username = :username, email = :email, created_at = :created_at
-            WHERE id = :id
+            UPDATE micro1.users
+            SET email = :email
+            WHERE username = :username
         """)
-        connection.execute(update_query, user_data.dict())
-        self.database.disconnect(connection)
-        return user_data
+        result = connection.execute(update_query, {"username": username, "email": user_data.email})
 
+        # Check if any row was affected
+        if result.rowcount == 0:
+            transaction.rollback()
+            raise HTTPException(status_code=404, detail="User update failed")
+
+        transaction.commit()
+        self.database.disconnect(connection)
+
+        return {"message": f"User with username {username} updated successfully"}
     # def delete_user(self, user_id: int):
     #     if user_id not in mock_users:
     #         raise HTTPException(status_code=404, detail="User not found")
     #     del mock_users[user_id]
-    def delete_user(self, user_id: int):
-        connection = self.database.connect()
-        # Check if user exists
-        check_query = text("SELECT * FROM users WHERE id = :id")
-        existing_user = connection.execute(check_query, {"id": user_id}).fetchone()
-        if not existing_user:
-            raise HTTPException(status_code=404, detail="User not found")
+    def delete_user(self, username: str):
+        try:
+            connection = self.database.connect()
+            transaction = connection.begin()
 
-        # Delete user
-        delete_query = text("DELETE FROM users WHERE id = :id")
-        connection.execute(delete_query, {"id": user_id})
-        self.database.disconnect(connection)
-        return {"message": f"User with id {user_id} deleted"}
+            # Delete user
+            delete_query = text("DELETE FROM micro1.users WHERE username = :username")
+            result = connection.execute(delete_query, {"username": username})
+
+            # Check if any row was affected
+            if result.rowcount == 0:
+                transaction.rollback()
+                raise HTTPException(status_code=404, detail="User not found")
+
+            transaction.commit()
+            self.database.disconnect(connection)
+            return {"message": f"User with username {username} deleted"}
+        except Exception as e:
+            print(f"Error: {e}")
+            transaction.rollback()
+            raise HTTPException(status_code=500, detail="An error happened")
