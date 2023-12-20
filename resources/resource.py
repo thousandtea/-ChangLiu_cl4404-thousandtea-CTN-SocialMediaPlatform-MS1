@@ -21,10 +21,10 @@ class UsersResource:
     def __init__(self, database):
         self.database = database
 
-    def get_user(self, username: str):
+    def get_user(self, email: str):
         connection = self.database.connect()
-        query = text("SELECT username, email, created_at FROM micro1.users WHERE username = :username")
-        result = connection.execute(query, {"username": username}).fetchone()
+        query = text("SELECT username, email, created_at FROM micro1.users WHERE email = :email")
+        result = connection.execute(query, {"email": email}).fetchone()
         self.database.disconnect(connection)
 
         if result:
@@ -95,6 +95,7 @@ class UsersResource:
     #         raise HTTPException(status_code=404, detail="User not found")
     #     mock_users[user_id] = user_data
     #     return user_data
+    # Updated version shifting from username based to email based
     def update_user(self, email: str, new_username: str):
         connection = self.database.connect()
         transaction = connection.begin()
@@ -120,24 +121,27 @@ class UsersResource:
     #     if user_id not in mock_users:
     #         raise HTTPException(status_code=404, detail="User not found")
     #     del mock_users[user_id]
-    def delete_user(self, username: str):
-        try:
-            connection = self.database.connect()
-            transaction = connection.begin()
+    # Updated version shifting from username based to email based
+    def delete_user(self, email: str):
+        connection = self.database.connect()
+        transaction = connection.begin()
 
-            # Delete user
-            delete_query = text("DELETE FROM micro1.users WHERE username = :username")
-            result = connection.execute(delete_query, {"username": username})
+        try:
+            # Delete user based on email
+            delete_query = text("DELETE FROM micro1.users WHERE email = :email")
+            result = connection.execute(delete_query, {"email": email})
 
             # Check if any row was affected
             if result.rowcount == 0:
                 transaction.rollback()
-                raise HTTPException(status_code=404, detail="User not found")
+                raise HTTPException(status_code=404, detail="User not found: No user found with the provided email")
 
             transaction.commit()
-            self.database.disconnect(connection)
-            return {"message": f"User with username {username} deleted"}
+            return {"message": f"User with email {email} deleted"}
+        except HTTPException as http_exc:
+            # If an HTTPException is raised, re-raise it
+            raise http_exc
         except Exception as e:
-            print(f"Error: {e}")
+            # For any other exceptions, rollback the transaction and raise an HTTPException
             transaction.rollback()
-            raise HTTPException(status_code=500, detail="An error happened")
+            raise HTTPException(status_code=500, detail=f"An error occurred: {e}")

@@ -11,17 +11,20 @@ from urllib.parse import urlencode
 from typing import List
 from resources.resource import UsersResource, User, Insert
 from database.database import Database
+from admin_check import get_current_admin
+
+from jose import jwt, JWTError
 
 # Database connection
-connection_string = ""
+connection_string = "mysql+pymysql://root:11223496743Yodo@localhost:3306/micro1"
 database = Database(connection_string)
 
 app = FastAPI()
 
 # Oath section
 # Google OAuth2 Config
-CLIENT_ID = ""
-CLIENT_SECRET = ""
+CLIENT_ID = "454768390285-36tko22c48hj8ca5qhd4aha88m18cdps.apps.googleusercontent.com"
+CLIENT_SECRET = "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"
 REDIRECT_URI = "http://localhost:8012/auth/callback"
 SCOPES = "openid email profile"
 AUTHORIZATION_URL = "https://accounts.google.com/o/oauth2/v2/auth"
@@ -81,7 +84,13 @@ async def auth_callback(code: str = None):
     try:
         created_user = users_resource.create_user(user_data)
     except Exception as exc:
-        raise HTTPException(status_code=500, detail="You are successfully logged and already signed in")
+        error_detail = {
+            "message": "You are successfully logged in and already signed in",
+            "access_token": token_json["access_token"],
+            "username": username,
+            "email": email
+        }
+        raise HTTPException(status_code=409, detail=error_detail)
 
     return {"message": "Login and User created successfully","access_token": token_json["access_token"], "username": username, "email": email}
 
@@ -100,29 +109,19 @@ async def get_api_docs():
 async def get_users():
     return users_resource.get_all_users()
 
-@app.post("/api/users/", response_model=Insert)
-async def create_user(user_data: Insert = Body(...)):
-    return users_resource.create_user(user_data)
+@app.put("/api/users/{email}", response_model=dict)
+async def update_user(email: str, new_username: str = Body(..., embed=True), _: dict = Depends(get_current_admin)):
+    # JWT token validation is handled by get_current_admin dependency
+    return users_resource.update_user(email, new_username)
 
-# @app.put("/api/users/", response_model=dict)  # Changed to use email as query parameter instead of username in the path
-# async def update_user(new_username: str, user: Insert = Body(...)):
-#     return users_resource.update_user(user.email, new_username)
+@app.delete("/api/users/{email}", response_model=dict)
+async def delete_user(email: str, _: dict = Depends(get_current_admin)):
+    return users_resource.delete_user(email)
 
-@app.delete("/api/users/{username}")
-async def delete_user(username: str):
-    return users_resource.delete_user(username)
-
-@app.post("/api/users/login")
-async def login_user():
-    return {"message": "User logged in"}
-
-@app.get("/api/users/{username}", response_model=User)
-async def get_user(username: str):
-    return users_resource.get_user(username)
-
-@app.get("/api/users/{username}/profile")
-async def get_user_profile(username: str):
-    return users_resource.get_user_profile(username)
+# Changed since email is the primary key
+@app.get("/api/users/{email}", response_model=User)
+async def get_user(email: str):
+    return users_resource.get_user(email)
 
 if __name__ == "__main__":
     import uvicorn
