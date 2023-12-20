@@ -13,15 +13,15 @@ from resources.resource import UsersResource, User, Insert
 from database.database import Database
 
 # Database connection
-connection_string = "mysql+pymysql://root:11223496743Yodo@localhost:3306/micro1"
+connection_string = ""
 database = Database(connection_string)
 
 app = FastAPI()
 
 # Oath section
 # Google OAuth2 Config
-CLIENT_ID = "454768390285-36tko22c48hj8ca5qhd4aha88m18cdps.apps.googleusercontent.com"
-CLIENT_SECRET = "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"
+CLIENT_ID = ""
+CLIENT_SECRET = ""
 REDIRECT_URI = "http://localhost:8012/auth/callback"
 SCOPES = "openid email profile"
 AUTHORIZATION_URL = "https://accounts.google.com/o/oauth2/v2/auth"
@@ -72,36 +72,25 @@ async def auth_callback(code: str = None):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Access only allowed for Columbia University users"
         )
+    # Constructing the user data
+    username = idinfo["given_name"] + "_" + idinfo["family_name"]
+    email = idinfo["email"]
 
-    user_id = idinfo.get('sub')
-    if user_id:
-        authenticated_users[user_id] = idinfo
-
-    return {"message": "Login successful","access_token": token_json["access_token"], "username": idinfo["given_name"]+"_"+idinfo["family_name"], "email": idinfo["email"]}
-
-async def get_current_user_id(token: str = Depends(oauth2_scheme)) -> str:
-    user_id = verify_google_token(token)  # Verify the token
-    if not user_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    return user_id
-
-async def verify_google_token(token: str = Depends(oauth2_scheme)):
+    # Create new user. (Yes, we move it here)
+    user_data = Insert(username=username, email=email)
     try:
-        idinfo = id_token.verify_oauth2_token(token, google_requests.Request(), CLIENT_ID)
-        return idinfo.get('sub')  # This assumes you want to return the user's unique ID
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authentication credentials")
+        created_user = users_resource.create_user(user_data)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="You are successfully logged and already signed in")
+
+    return {"message": "Login and User created successfully","access_token": token_json["access_token"], "username": username, "email": email}
 
 # User section
 users_resource = UsersResource(database)
 
 @app.get("/")
 async def root():
-    return {"message": "Hello World"}
+    return {"message": "Hello World! This is micro1 microservice for SpaceZ"}
 
 @app.get("/api/docs")
 async def get_api_docs():
@@ -111,26 +100,13 @@ async def get_api_docs():
 async def get_users():
     return users_resource.get_all_users()
 
-# @app.post("/api/users/", response_model=Insert)
-# async def create_user(user_data: Insert = Body(...)):
-#     return users_resource.create_user(user_data)
 @app.post("/api/users/", response_model=Insert)
-async def create_user(user_id: str = Depends(get_current_user_id)):
-    # Retrieve the user information from authenticated_users
-    if user_id not in authenticated_users:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not authenticated")
-
-    user_info = authenticated_users[user_id]
-    username = user_info.get('given_name') + " " + user_info.get('family_name')
-    email = user_info.get('email')
-
-    # Call the create_user method of UsersResource with this data
-    user_data = Insert(username=username, email=email)
+async def create_user(user_data: Insert = Body(...)):
     return users_resource.create_user(user_data)
 
-@app.put("/api/users/{username}", response_model=dict)
-async def update_user(username: str, user: Insert = Body(...)):
-    return users_resource.update_user(username, user)
+# @app.put("/api/users/", response_model=dict)  # Changed to use email as query parameter instead of username in the path
+# async def update_user(new_username: str, user: Insert = Body(...)):
+#     return users_resource.update_user(user.email, new_username)
 
 @app.delete("/api/users/{username}")
 async def delete_user(username: str):

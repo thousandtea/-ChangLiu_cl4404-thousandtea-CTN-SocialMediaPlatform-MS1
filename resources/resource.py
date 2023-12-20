@@ -95,27 +95,27 @@ class UsersResource:
     #         raise HTTPException(status_code=404, detail="User not found")
     #     mock_users[user_id] = user_data
     #     return user_data
-    def update_user(self, username: str, user_data: Insert):
+    def update_user(self, email: str, new_username: str):
         connection = self.database.connect()
         transaction = connection.begin()
 
-        # Existing code for updating user...
+        # Change made: we set email as the primary key so username is the one that changes
         update_query = text("""
             UPDATE micro1.users
-            SET email = :email
-            WHERE username = :username
+            SET username = :new_username
+            WHERE email = :email
         """)
-        result = connection.execute(update_query, {"username": username, "email": user_data.email})
+        result = connection.execute(update_query, {"new_username": new_username, "email": email})
 
         # Check if any row was affected
         if result.rowcount == 0:
             transaction.rollback()
-            raise HTTPException(status_code=404, detail="User update failed")
+            raise HTTPException(status_code=404, detail="User update failed: No user found with the provided email")
 
         transaction.commit()
         self.database.disconnect(connection)
 
-        return {"message": f"User with username {username} updated successfully"}
+        return {"message": f"Username {new_username} updated successfully for user with email {email}"}
     # def delete_user(self, user_id: int):
     #     if user_id not in mock_users:
     #         raise HTTPException(status_code=404, detail="User not found")
