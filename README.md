@@ -1,30 +1,37 @@
-# CTN-SocialMediaPlatform-MS1-User
+# CTN-SocialMediaPlatform-MS1-User 
+This microservice is a part of the CTN Social Media Platform and handles user-related operations. 
+## Setup Instructions 
+Before running the service, ensure all dependencies are installed: 
+``` pip install -r requirements.txt ``` 
+## Initial Database Setup 
+1. Run ```database_init.py``` to create the required schema and tables in your database. 
+2. Update the database connection settings in ```main.py``` and ```database_init.py``` to match your local setup. 
+## Running the Service 
+Start the service with: ``` python main.py ``` 
+The FastAPI server will typically be accessible at ```http://localhost:8011```. 
 
-Make sure do the command 
-``` pip install -r requirements.txt ```
+# API Usage 
+## User Creation via Google OAuth2 
+User accounts are automatically created upon their first login through Google OAuth2. 
+The login flow is initiated at: ``` GET /auth/login ``` 
+This endpoint redirects to Google's OAuth2 service for user authentication. Upon successful authentication, the user is redirected back to the specified callback URL ```(/auth/callback)```, where their account is created. 
 
-## Instruction and Use
-1. Before running the ``` main.py ```, run ``` database_init.py ``` first to create a schema and a table.
-
-2. Fill the database information in the ``` main.py ``` and  ``` database_init.py ``` for your own local settings.
-
-## Example to CURL
-Here are some examples that you can try to CURL on your local:
-
-```
-Create： “curl -X POST http://146.148.79.250:8012/api/users/ \
--H "Content-Type: application/json" \
--d '{"username": "new_user", "email": "new_user@example.com"}'
-" 
-Get 
-get all: "curl -X GET http://146.148.79.250:8012/api/users
-" 
-get one: "curl -X GET http://146.148.79.250:8012/api/users/{username}"
-
-Update: "curl -X PUT http://146.148.79.250:8012/api/users/{username} \
--H "Content-Type: application/json" \
--d '{"username": "existing_user", "email": "updated_email@example.com"}'
-" 
-Delete: "curl -X DELETE http://146.148.79.250:8012/api/users/{username}
-"
+## Example to CURL 
+Here are some example ```curl``` commands for interacting with the API: 
+### Get User 
+1. Get all users: 
+``` 
+curl -X GET "http://localhost:8012/api/users" 
+``` 
+2. Get a specific user by email: 
+``` 
+curl -X GET "http://localhost:8012/api/users/{email}" 
+``` 
+### Update a User (Admin Only) 
+``` 
+curl -X PUT "http://localhost:8012/api/users/{email}" \ -H "Authorization: Bearer YOUR_ADMIN_JWT_TOKEN" \ -H "Content-Type: application/json" \ -d '{"new_username": "updated_username"}' 
+``` 
+### Delete a User (Admin Only) 
+``` 
+curl -X DELETE "http://localhost:8012/api/users/{email}" \ -H "Authorization: Bearer YOUR_ADMIN_JWT_TOKEN" 
 ```
