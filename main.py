@@ -16,15 +16,15 @@ from admin_check import get_current_admin
 from jose import jwt, JWTError
 
 # Database connection
-connection_string = "mysql+pymysql://root:11223496743Yodo@localhost:3306/micro1"
+connection_string = ""
 database = Database(connection_string)
 
 app = FastAPI()
 
 # Oath section
 # Google OAuth2 Config
-CLIENT_ID = "454768390285-36tko22c48hj8ca5qhd4aha88m18cdps.apps.googleusercontent.com"
-CLIENT_SECRET = "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"
+CLIENT_ID = ""
+CLIENT_SECRET = ""
 REDIRECT_URI = "http://localhost:8012/auth/callback"
 SCOPES = "openid email profile"
 AUTHORIZATION_URL = "https://accounts.google.com/o/oauth2/v2/auth"
