@@ -15,6 +15,9 @@ from admin_check import get_current_admin
 
 from jose import jwt, JWTError
 
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.responses import JSONResponse 
+
 # Database connection
 connection_string = ""
 database = Database(connection_string)
@@ -47,6 +50,7 @@ async def login():
         "redirect_uri": REDIRECT_URI,
         "scope": SCOPES,
         "access_type": "offline",
+        "prompt": "select_account" # Force to choose an account to login for each time
     }
     url = f"{AUTHORIZATION_URL}?{urlencode(params)}"
     return RedirectResponse(url=url)
@@ -82,17 +86,37 @@ async def auth_callback(code: str = None):
     # Create new user. (Yes, we move it here)
     user_data = Insert(username=username, email=email)
     try:
+        existing_user = users_resource.get_user(user_email)
+        return JSONResponse({
+            "message": "User already exists. Logged in successfully",
+            "access_token": token_json["access_token"],
+            "username": existing_user.username,
+            "email": existing_user.email
+        })
+    except HTTPException as exc:
+        # If user does not exist, create a new user
+        username = idinfo["given_name"] + "_" + idinfo["family_name"]
+        email = idinfo["email"]
+        user_data = Insert(username=username, email=email)
         created_user = users_resource.create_user(user_data)
-    except Exception as exc:
-        error_detail = {
-            "message": "You are successfully logged in and already signed in",
+        return JSONResponse({
+            "message": "New user created and logged in successfully",
             "access_token": token_json["access_token"],
             "username": username,
             "email": email
-        }
-        raise HTTPException(status_code=409, detail=error_detail)
+        })
+    # try:
+    #     created_user = users_resource.create_user(user_data)
+    # except Exception as exc:
+    #     error_detail = {
+    #         "message": "You are successfully logged in and already signed in",
+    #         "access_token": token_json["access_token"],
+    #         "username": username,
+    #         "email": email
+    #     }
+    #     raise HTTPException(status_code=409, detail=error_detail)
 
-    return {"message": "Login and User created successfully","access_token": token_json["access_token"], "username": username, "email": email}
+    # return {"message": "Login and User created successfully","access_token": token_json["access_token"], "username": username, "email": email}
 
 # User section
 users_resource = UsersResource(database)
