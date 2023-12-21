@@ -8,7 +8,7 @@ Before running the service, ensure all dependencies are installed:
 2. Update the database connection settings in ```main.py``` and ```database_init.py``` to match your local setup. 
 ## Running the Service 
 Start the service with: ``` python main.py ``` 
-The FastAPI server will typically be accessible at ```http://localhost:8011```. 
+The FastAPI server will typically be accessible at ```http://localhost:8012```. 
 
 # API Usage 
 ## User Creation via Google OAuth2 
